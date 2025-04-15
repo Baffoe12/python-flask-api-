@@ -4,6 +4,7 @@ Flask-SQLAlchemy==2.5.1
 Flask-Cors==3.0.10
 SQLAlchemy==1.4.23
 pg8000==1.30.3
+psycopg2-binary==2.9.3
 gunicorn==20.1.0
 python-dotenv==0.19.0
 requests==2.26.0
