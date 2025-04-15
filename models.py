@@ -77,3 +77,26 @@ class SensorData(db.Model):
             'alcohol_level': self.alcohol_level,
             'other_data': self.other_data
         }
+
+class SystemStatus(db.Model):
+    __tablename__ = 'system_status'
+    
+    id = db.Column(db.Integer, primary_key=True)
+    user_id = db.Column(db.Integer, db.ForeignKey('users.id'), nullable=False)
+    is_active = db.Column(db.Boolean, default=False)
+    last_updated = db.Column(db.DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+    device_id = db.Column(db.String(100), nullable=True)
+    device_info = db.Column(db.JSON, nullable=True)  # Additional device information
+    
+    # Relationship with user
+    user = db.relationship('User', backref='system_statuses', lazy=True)
+    
+    def to_dict(self):
+        return {
+            'id': self.id,
+            'user_id': self.user_id,
+            'is_active': self.is_active,
+            'last_updated': self.last_updated.isoformat() if self.last_updated else None,
+            'device_id': self.device_id,
+            'device_info': self.device_info
+        }

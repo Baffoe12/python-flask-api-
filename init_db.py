@@ -7,7 +7,7 @@ app.config.from_object(Config)
 db = SQLAlchemy(app)
 
 # Import your models here
-from models import User, AccidentReport, SensorData
+from models import User, AccidentReport, SensorData, SystemStatus
 
 def init_db():
     """Initialize the database."""

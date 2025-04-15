@@ -2,7 +2,7 @@ from flask import Flask, request, jsonify
 from flask_cors import CORS
 from datetime import datetime
 import os
-from models import db, AccidentReport, User, SensorData
+from models import db, AccidentReport, User, SensorData, SystemStatus
 from flask_bcrypt import Bcrypt
 from flask_jwt_extended import create_access_token, jwt_required, JWTManager, get_jwt_identity
 
@@ -119,6 +119,10 @@ def root():
             "sensor-data": {
                 "create": "POST /sensor-data/ (Authentication Required)",
                 "latest": "GET /sensor-data/latest (Authentication Required)"
+            },
+            "system-status": {
+                "update": "POST /system-status/ (Authentication Required)",
+                "get": "GET /system-status/ (Authentication Required)"
             }
         }
     })
@@ -244,6 +248,72 @@ def get_latest_sensor_data():
             return jsonify({'error': 'No sensor data found for user'}), 404
     except Exception as e:
         return jsonify({'error': 'Could not retrieve sensor data', 'details': str(e)}), 500
+
+# --- System Status Endpoints ---
+
+@app.route('/system-status/', methods=['POST'])
+@jwt_required()
+def update_system_status():
+    data = request.get_json()
+    current_user_id = get_jwt_identity()
+    
+    if 'is_active' not in data:
+        return jsonify({"error": "Missing required field: is_active"}), 400
+    
+    try:
+        # Check if a status entry already exists for this user
+        status = SystemStatus.query.filter_by(user_id=current_user_id).first()
+        
+        if status:
+            # Update existing status
+            status.is_active = data['is_active']
+            status.last_updated = datetime.utcnow()
+            if 'device_id' in data:
+                status.device_id = data['device_id']
+            if 'device_info' in data:
+                status.device_info = data['device_info']
+        else:
+            # Create new status entry
+            status = SystemStatus(
+                user_id=current_user_id,
+                is_active=data['is_active'],
+                device_id=data.get('device_id'),
+                device_info=data.get('device_info')
+            )
+            db.session.add(status)
+        
+        db.session.commit()
+        return jsonify(status.to_dict()), 200
+    except Exception as e:
+        db.session.rollback()
+        return jsonify({"error": "Could not update system status", "details": str(e)}), 500
+
+@app.route('/system-status/', methods=['GET'])
+@jwt_required()
+def get_system_status():
+    current_user_id = get_jwt_identity()
+    try:
+        status = SystemStatus.query.filter_by(user_id=current_user_id).first()
+        if status:
+            return jsonify(status.to_dict())
+        else:
+            return jsonify({"error": "No system status found for user", "is_active": False}), 404
+    except Exception as e:
+        return jsonify({"error": "Could not retrieve system status", "details": str(e)}), 500
+
+@app.route('/system-status/all', methods=['GET'])
+@jwt_required()
+def get_all_active_systems():
+    try:
+        # Only administrators should be able to access this endpoint
+        # For now, we'll just implement it without admin checks
+        active_systems = SystemStatus.query.filter_by(is_active=True).all()
+        return jsonify({
+            "active_count": len(active_systems),
+            "systems": [system.to_dict() for system in active_systems]
+        })
+    except Exception as e:
+        return jsonify({"error": "Could not retrieve active systems", "details": str(e)}), 500
 
 if __name__ == '__main__':
     port = int(os.environ.get('PORT', 8000))
