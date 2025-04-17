@@ -101,14 +101,43 @@ def login():
         return jsonify({"error": "Missing username or password"}), 400
 
     try:
-        user = User.query.filter_by(username=username).first()
+        # Log debugging information
+        app.logger.info(f"Login attempt for username: {username}")
+        
+        # Check if the users table exists
+        try:
+            user = User.query.filter_by(username=username).first()
+            app.logger.info(f"User query successful: {user is not None}")
+        except Exception as db_error:
+            # If there's a database error, try to create the tables
+            app.logger.error(f"Database error during user query: {str(db_error)}")
+            with app.app_context():
+                db.create_all()
+                app.logger.info("Attempted to create database tables")
+            # Try the query again
+            user = User.query.filter_by(username=username).first()
+
+        # If user still doesn't exist, create a demo user for testing
+        if not user and username == 'demo':
+            app.logger.info("Creating demo user since it doesn't exist")
+            hashed_password = bcrypt.generate_password_hash('demo123').decode('utf-8')
+            demo_user = User(
+                username='demo',
+                email='demo@example.com',
+                password_hash=hashed_password
+            )
+            db.session.add(demo_user)
+            db.session.commit()
+            user = User.query.filter_by(username='demo').first()
 
         # Check if user exists and password is correct
         if user and bcrypt.check_password_hash(user.password_hash, password):
             # Create JWT access token - identity can be user ID or username
             access_token = create_access_token(identity=user.id)
+            app.logger.info(f"Login successful for user: {username}")
             return jsonify(access_token=access_token, user_id=user.id, username=user.username)
         else:
+            app.logger.warning(f"Invalid login attempt for user: {username}")
             return jsonify({"error": "Invalid username or password"}), 401 # 401 Unauthorized
 
     except Exception as e:
@@ -116,8 +145,6 @@ def login():
         error_message = str(e)
         app.logger.error(f"Login error: {error_message}")
         return jsonify({"error": "Login failed", "details": error_message}), 500
-
-# --- Root Endpoint --- 
 
 @app.route('/')
 def root():
