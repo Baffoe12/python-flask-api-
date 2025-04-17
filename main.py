@@ -87,13 +87,15 @@ def login():
         if user and bcrypt.check_password_hash(user.password_hash, password):
             # Create JWT access token - identity can be user ID or username
             access_token = create_access_token(identity=user.id)
-            return jsonify(access_token=access_token)
+            return jsonify(access_token=access_token, user_id=user.id, username=user.username)
         else:
             return jsonify({"error": "Invalid username or password"}), 401 # 401 Unauthorized
 
     except Exception as e:
-        # Log the error e
-        return jsonify({"error": "Login failed", "details": str(e)}), 500
+        # Enhanced error logging
+        error_message = str(e)
+        app.logger.error(f"Login error: {error_message}")
+        return jsonify({"error": "Login failed", "details": error_message}), 500
 
 # --- Root Endpoint --- 
 
