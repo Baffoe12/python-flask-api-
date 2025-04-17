@@ -18,6 +18,26 @@ jwt = JWTManager(app)
 
 CORS(app)
 
+# Initialize database tables and create demo user if needed
+@app.before_first_request
+def initialize_database():
+    db.create_all()
+    # Check if demo user exists
+    existing_user = User.query.filter_by(username='demo').first()
+    if not existing_user:
+        # Create demo user
+        hashed_password = bcrypt.generate_password_hash('demo123').decode('utf-8')
+        demo_user = User(
+            username='demo',
+            email='demo@example.com',
+            password_hash=hashed_password
+        )
+        db.session.add(demo_user)
+        db.session.commit()
+        app.logger.info("Demo user created successfully!")
+    else:
+        app.logger.info("Demo user already exists.")
+
 prevention_alerts = [
     {
         "id": 1,
